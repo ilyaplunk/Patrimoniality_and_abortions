@@ -44,7 +44,7 @@ library(MLMusingR)
 ```{r message=FALSE, warning=FALSE}
 # WVS + EVS 2017-2022
 wvs_evs_2017 <- read.csv("~/Desktop/Data for term paper/WVS data/EVS_WVS_Joint_Csv_v5_0.csv")
-wvs_evs_2017 <- wvs_evs_2017 %>% filter(cntry_AN != "NIR") # Исключаю Северную 
+wvs_evs_2017 <- wvs_evs_2017 %>% filter(cntry_AN != "NIR") # Исключаю Северную Ирландию
 
 # ВВП на душу населения по ППС (2022)
 gdp_ppp <- read_csv("~/Desktop/Data for term paper/GDP_PPP_per_capita/API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_85176.csv", skip = 4)
