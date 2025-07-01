@@ -1,0 +1,396 @@
+---
+title: "Untitled"
+author: "Ilya Bezrukov"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(modelsummary)
+library(huxtable)
+library(webshot2)
+```
+
+
+### Линейные модели
+
+```{r}
+coef_map <- c(
+  "(Intercept)" = "Intercept",
+  "index_pat" = "Патримониализм",
+  "modernization_index" = "Индекс модернизации",
+  "index_pat:modernization_index" = "Патримониализм × Модернизация",
+  "gender" = "Пол (1 = женщина)",
+  "age" = "Возраст",
+  "education" = "Образование (1 = высшее)",
+  "marital_statLiving together" = "Семейное положение: сожительство",
+  "marital_statDivorced" = "Семейное положение: разведен(а)",
+  "marital_statSeparated" = "Семейное положение: раздельно проживающий(ая)",
+  "marital_statWidowed" = "Семейное положение: вдова/вдовец",
+  "marital_statSingle" = "Семейное положение: не в браке",
+  "parenthood" = "Наличие детей (1 = есть)",
+  "religion_imp" = "Важность религии",
+  "gender_lib" = "Гендерная эмансипация",
+  "income" = "Доход"
+)
+
+models_list <- list(
+  "Модель 1" = mod1_2,
+  "Модель 2" = mod2_2,
+  "Модель 3" = mod3_2,
+  "Модель 4" = mod4_2,
+  "Модель 5" = mod5_2,
+  "Модель 6" = mod6_2,
+  "Модель 7" = mod7_2,
+  "Модель 8" = mod8_2,
+  "Модель 9" = mod9_2,
+  "Модель 10" = mod10_2,
+  "Модель 11" = mod11_2
+)
+
+tbl <- modelsummary(
+  models_list,
+  stars = TRUE,
+  coef_map = coef_map,
+  coef_order = coef_order,
+  statistic = "({std.error})",
+  fmt = 3,
+  gof_omit = "RMSE|ICC",  # убираем RMSE и ICC
+  output = "huxtable"
+)
+
+font(tbl) <- "Georgia"
+font_size(tbl) <- 11
+align(tbl) <- "center"
+bold(tbl)[1, ] <- TRUE
+top_border(tbl)[1, ] <- 1
+bottom_border(tbl)[1, ] <- 1
+
+html_file <- "results.html"
+quick_html(tbl, file = html_file)
+
+png_file <- "results.png"
+webshot(html_file, file = png_file, vwidth = 1200, vheight = 800)
+```
+
+### Логистические модели
+
+```{r}
+coef_map <- c(
+  "(Intercept)" = "Intercept",
+  "index_pat" = "Патримониализм",
+  "modernization_index" = "Индекс модернизации",
+  "index_pat:modernization_index" = "Патримониализм × Модернизация",
+  "gender" = "Пол (1 = женщина)",
+  "age" = "Возраст",
+  "education" = "Образование (1 = высшее)",
+  "marital_statLiving together" = "Семейное положение: сожительство",
+  "marital_statDivorced" = "Семейное положение: разведен(а)",
+  "marital_statSeparated" = "Семейное положение: раздельно проживающий(ая)",
+  "marital_statWidowed" = "Семейное положение: вдова/вдовец",
+  "marital_statSingle" = "Семейное положение: не в браке",
+  "parenthood" = "Наличие детей (1 = есть)",
+  "religion_imp" = "Важность религии",
+  "gender_lib" = "Гендерная эмансипация",
+  "income" = "Доход"
+)
+
+# Список логистических моделей
+models_list <- list(
+  "Модель 1" = mod1,
+  "Модель 2" = mod2,
+  "Модель 3" = mod3,
+  "Модель 4" = mod4,
+  "Модель 5" = mod5,
+  "Модель 6" = mod6,
+  "Модель 7" = mod7,
+  "Модель 8" = mod8,
+  "Модель 9" = mod9,
+  "Модель 10" = mod10,
+  "Модель 11" = mod11
+)
+
+tbl <- modelsummary(
+  models_list,
+  stars = TRUE,
+  exponentiate = TRUE,
+  statistic = "({std.error})",
+  fmt = 3,
+  coef_map = coef_map,
+  coef_omit = "SD",
+  gof_omit = "ICC|RMSE",  # исключаем ICC и RMSE
+  output = "huxtable"
+)
+
+# Стилизация таблицы
+font(tbl) <- "Georgia"
+font_size(tbl) <- 11
+align(tbl) <- "center"
+bold(tbl)[1, ] <- TRUE
+top_border(tbl)[1, ] <- 1
+bottom_border(tbl)[1, ] <- 1
+
+# Сохранение в HTML
+html_file <- "logit_results.html"
+quick_html(tbl, file = html_file)
+
+# Скриншот HTML → PNG
+png_file <- "logit_results.png"
+webshot(html_file, file = png_file, vwidth = 1200, vheight = 800)
+```
+
+```{r}
+sjPlot::tab_model(
+  mod1_2, mod2_2, mod3_2, mod4_2, mod5_2, mod6_2, 
+  mod7_2, mod8_2, mod9_2, mod10_2, mod11_2,
+  dv.labels = c("Модель 1", "Модель 2", "Модель 3", "Модель 4", 
+                "Модель 5", "Модель 6", "Модель 7", "Модель 8", 
+                "Модель 9", "Модель 10", "Модель 11"),
+  p.style = "stars",
+  show.ci = FALSE,
+  title = "Таблица 2. Многоуровневые линейные регрессии",
+  file = "model_table_liner.html"  # <- сохраняем таблицу
+)
+```
+
+```{r}
+sjPlot::tab_model(
+  mod1, mod2, mod3, mod4, mod5, mod6, 
+  mod7, mod8, mod9, mod10, mod11,
+  dv.labels = c("Модель 1", "Модель 2", "Модель 3", "Модель 4", 
+                "Модель 5", "Модель 6", "Модель 7", "Модель 8", 
+                "Модель 9", "Модель 10", "Модель 11"),
+  p.style = "stars",
+  show.ci = FALSE,
+  title = "Таблица 1. Бинарные многоуровневые логистические регрессии",  # <- заголовок таблицы
+  file = "model_table_logit.html",
+  pred.labels = c(
+    "Интерсепт",
+    "Патримониализм",
+    "Индекс модернизации",
+    "Пол (1 = женщина)",
+    "Возраст",
+    "Образование (1 = высшее)",
+    "Семейное положение: сожительство",
+    "Семейное положение: разведен(а)",
+    "Семейное положение: раздельно проживающий(ая)",
+    "Семейное положение: вдова/вдовец",
+    "Семейное положение: не в браке",
+    "Наличие детей (1 = есть)",
+    "Важность религии",
+    "Гендерная эмансипация",
+    "Доход",
+    "Патримониализм × Модернизация"
+  )# <- сохраняем таблицу
+)
+```
+
+```{r}
+library(modelsummary)
+library(performance)
+
+# Список моделей
+models <- list(
+  "Модель 1" = mod1_2,
+  "Модель 2" = mod2_2,
+  "Модель 3" = mod3_2,
+  "Модель 4" = mod4_2,
+  "Модель 5" = mod5_2,
+  "Модель 6" = mod6_2,
+  "Модель 7" = mod7_2,
+  "Модель 8" = mod8_2,
+  "Модель 9" = mod9_2,
+  "Модель 10" = mod10_2,
+  "Модель 11" = mod11_2
+)
+
+coef_rename <- c(
+  "(Intercept)" = "Константа",
+  "index_pat" = "Патримониализм",
+  "modernization_index" = "Индекс модернизации",
+  "index_pat:modernization_index" = "Патримониализм × Модернизация",
+  "gender" = "Пол (1 = женщина)",
+  "age" = "Возраст",
+  "education" = "Образование (1 = высшее)",
+  "marital_statLiving together" = "Семейное положение: сожительство",
+  "marital_statDivorced" = "Семейное положение: разведен(а)",
+  "marital_statSeparated" = "Семейное положение: раздельно проживающий(ая)",
+  "marital_statWidowed" = "Семейное положение: вдова/вдовец",
+  "marital_statSingle" = "Семейное положение: не в браке",
+  "parenthood" = "Наличие детей (1 = есть)",
+  "religion_imp" = "Важность религии",
+  "gender_lib" = "Гендерная эмансипация",
+  "income" = "Доход",
+  # Случайные эффекты с точными именами
+  "SD (Intercept Country_Name)" = "Стандартное отклонение группоспецифических свободных членов (констант)",
+  "SD (index_pat Country_Name)" = "Стандртное отклонение группоспецифических коэффициентов
+(наклонов) для патримониализма",
+  "Cor (Intercept~index_pat Country_Name)" = "Корреляция группоспецифических констант и группоспецифических наклонов",
+  "SD (Observations)" = "Стандартное отклонение остатков"
+)
+
+models <- list(
+  "Модель 1" = mod1_2,
+  "Модель 2" = mod2_2,
+  "Модель 3" = mod3_2,
+  "Модель 4" = mod4_2,
+  "Модель 5" = mod5_2,
+  "Модель 6" = mod6_2,
+  "Модель 7" = mod7_2,
+  "Модель 8" = mod8_2,
+  "Модель 9" = mod9_2,
+  "Модель 10" = mod10_2,
+  "Модель 11" = mod11_2
+)
+
+options("modelsummary_get" = "performance")
+
+modelsummary(
+  models,
+  coef_rename = coef_rename,
+  output = "modelsummary_named_with_random_1.html",
+  statistic = "std.error",
+  stars = TRUE,
+  title = "Таблица 2. Многоуровневые линейные регрессии", 
+  gof_omit = NULL
+)
+```
+
+```{r}
+library(modelsummary)
+library(performance)
+
+# Список моделей
+models <- list(
+  "Модель 1" = mod1,
+  "Модель 2" = mod2,
+  "Модель 3" = mod3,
+  "Модель 4" = mod4,
+  "Модель 5" = mod5,
+  "Модель 6" = mod6,
+  "Модель 7" = mod7,
+  "Модель 8" = mod8,
+  "Модель 9" = mod9,
+  "Модель 10" = mod10,
+  "Модель 11" = mod11
+)
+
+coef_rename <- c(
+  "(Intercept)" = "Константа",
+  "index_pat" = "Патримониализм",
+  "modernization_index" = "Индекс модернизации",
+  "index_pat:modernization_index" = "Патримониализм × Модернизация",
+  "gender" = "Пол (1 = женщина)",
+  "age" = "Возраст",
+  "education" = "Образование (1 = высшее)",
+  "marital_statLiving together" = "Семейное положение: сожительство",
+  "marital_statDivorced" = "Семейное положение: разведен(а)",
+  "marital_statSeparated" = "Семейное положение: раздельно проживающий(ая)",
+  "marital_statWidowed" = "Семейное положение: вдова/вдовец",
+  "marital_statSingle" = "Семейное положение: не в браке",
+  "parenthood" = "Наличие детей (1 = есть)",
+  "religion_imp" = "Важность религии",
+  "gender_lib" = "Гендерная эмансипация",
+  "income" = "Доход",
+  "SD (Intercept Country_Name)" = "Стандартное отклонение группоспецифических свободных членов (констант)",
+  "SD (index_pat Country_Name)" = "Стандартное отклонение группоспецифических коэффициентов (наклонов) для патримониализма",
+  "Cor (Intercept~index_pat Country_Name)" = "Корреляция группоспецифических констант и группоспецифических наклонов",
+  "SD (Observations)" = "Стандартное отклонение остатков"
+)
+
+options("modelsummary_get" = "performance")
+
+modelsummary(
+  models,
+  coef_rename = coef_rename,
+  output = "modelsummary_named_with_random_2.html",
+  statistic = "std.error",
+  stars = TRUE,
+  gof_omit = NULL,
+  title = "Таблица 1. Бинарные многоуровневые логистические регрессии", 
+  exponentiate = FALSE  # Экспоненцируем коэффициенты (odds ratios)
+)
+```
+
+```{r}
+models <- list(
+  mod1_2, mod2_2, mod3_2, mod4_2, mod5_2, mod6_2, 
+  mod7_2, mod8_2, mod9_2, mod10_2, mod11_2
+)
+
+sjPlot::tab_model(
+  models,
+  dv.labels = c("Модель 1", "Модель 2", "Модель 3", "Модель 4", 
+                "Модель 5", "Модель 6", "Модель 7", "Модель 8", 
+                "Модель 9", "Модель 10", "Модель 11"),
+  p.style = "stars",
+  show.ci = FALSE,
+  title = "Таблица 2. Многоуровневые линейные регрессии",
+  file = "model_table_liner.html",
+  pred.labels = c(
+    "Интерсепт",
+    "Патримониализм",
+    "Пол (1 = женщина)",
+    "Возраст",
+    "Образование (1 = высшее)",
+    "Семейное положение: сожительство",
+    "Семейное положение: разведен(а)",
+    "Семейное положение: раздельно проживающий(ая)",
+    "Семейное положение: вдова/вдовец",
+    "Семейное положение: не в браке",
+    "Наличие детей (1 = есть)",
+    "Важность религии",
+    "Гендерная эмансипация",
+    "Доход",
+    "Индекс модернизации",
+    "Патримониализм × Модернизация"
+  )
+)
+
+
+```
+
+
+```{r}
+sjPlot::tab_model(
+  mod1, mod2, mod3, mod4, mod5, mod6, 
+  mod7, mod8, mod9, mod10, mod11,
+  dv.labels = c("Модель 1", "Модель 2", "Модель 3", "Модель 4", 
+                "Модель 5", "Модель 6", "Модель 7", "Модель 8", 
+                "Модель 9", "Модель 10", "Модель 11"),
+  p.style = "stars",
+  show.ci = FALSE,
+  transform = NULL,
+  title = "Таблица 1. Бинарные многоуровневые логистические регрессии",
+  file = "model_table_logit.html",
+  pred.labels = c(
+    "Интерсепт",
+    "Патримониализм",
+    "Пол (1 = женщина)",
+    "Возраст",
+    "Образование (1 = высшее)",
+    "Семейное положение: сожительство",
+    "Семейное положение: разведен(а)",
+    "Семейное положение: раздельно проживающий(ая)",
+    "Семейное положение: вдова/вдовец",
+    "Семейное положение: не в браке",
+    "Наличие детей (1 = есть)",
+    "Важность религии",
+    "Гендерная эмансипация",
+    "Доход",
+    "Индекс модернизации",
+    "Патримониализм × Модернизация"
+  )
+)
+```
+
+
+
+
+
+
+
