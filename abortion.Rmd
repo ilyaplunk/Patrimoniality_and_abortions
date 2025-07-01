@@ -1,0 +1,1034 @@
+---
+title: "Курсовая"
+author: "Ilya Bezrukov"
+date: "2024-12-23"
+output:
+  html_document:
+    toc: true
+    toc_depth: 6
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: flatly
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Чтение пакетов, include=FALSE}
+library(lme4)
+library(lmerTest)
+library(readxl)
+library(performance)
+library(foreign) 
+library(sjPlot)
+library(ggrepel)
+library(MuMIn)
+library(tidyverse)
+library(skimr)
+library(plotly)
+library(mitml)
+library(ggeffects)
+library(interactions)
+library(modelsummary)
+library(MLMusingR)
+```
+
+------------------------------------------------------------------------
+
+### Чтение датасетов
+
+```{r message=FALSE, warning=FALSE}
+# WVS + EVS 2017-2022
+wvs_evs_2017 <- read.csv("~/Desktop/Data for term paper/WVS data/EVS_WVS_Joint_Csv_v5_0.csv")
+wvs_evs_2017 <- wvs_evs_2017 %>% filter(cntry_AN != "NIR") # Исключаю Северную 
+
+# ВВП на душу населения по ППС (2022)
+gdp_ppp <- read_csv("~/Desktop/Data for term paper/GDP_PPP_per_capita/API_NY.GDP.PCAP.PP.CD_DS2_en_csv_v2_85176.csv", skip = 4)
+
+# К датасету wvs_evs_2017 были добавлены полные названия стран (Country_Name) и показатели ВВП
+```
+
+```{r добавление полных названий для стран, include=FALSE}
+
+country_names <- c("Albania", "Azerbaijan", "Austria", "Armenia", "Bosnia and Herzegovina",
+                   "Bulgaria", "Belarus", "Croatia", "Czech Republic", "Denmark", "Estonia",
+                   "Finland", "France", "Georgia", "Germany", "Hungary", "Iceland", "Italy",
+                   "Latvia", "Lithuania", "Montenegro", "Netherlands", "Norway", "Poland",
+                   "Portugal", "Romania", "Russia", "Serbia", "Slovakia", "Slovenia", "Spain",
+                   "Sweden", "Switzerland", "Ukraine", "North Macedonia", "United Kingdom",
+                   "Andorra", "Argentina", "Australia", "Bangladesh", "Bolivia", "Brazil",
+                   "Canada", "Colombia", "Cyprus", "Chile", "China", "Ecuador", "Egypt",
+                   "Ethiopia", "Greece", "Guatemala", "Hong Kong", "India", "Indonesia", "Iran",
+                   "Iraq", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kyrgyzstan", "Lebanon",
+                   "Libya", "Macao", "Malaysia", "Maldives", "Mexico", "Mongolia", "Morocco",
+                   "Myanmar", "New Zealand", "Nicaragua", "Nigeria",
+                   "Pakistan", "Peru", "Philippines", "Puerto Rico", "Singapore", "South Korea",
+                   "Taiwan", "Tajikistan", "Thailand", "Tunisia", "Turkey", "United States",
+                   "Uruguay", "Uzbekistan", "Venezuela", "Vietnam", "Zimbabwe")
+
+
+cntry_AN <- c("AL", "AZ", "AT", "AM", "BA", "BG", "BY", "HR", "CZ", "DK", "EE", "FI", "FR",
+              "GE", "DE","HU", "IS", "IT", "LV", "LT", "ME", "NL", "NO", "PL", "PT", "RO", "RU",
+              "RS", "SK", "SI", "ES", "SE", "CH", "UA", "MK", "GB", "AD", "AR", "AU", "BD",
+              "BO", "BR", "CA", "CO", "CY", "CL", "CN", "EC", "EG", "ET", "GR", "GT", "HK",
+              "IN", "ID", "IR", "IQ", "JP", "JO", "KZ", "KE", "KG", "LB", "LY", "MO", "MY",
+              "MV", "MX", "MN", "MA", "MM", "NZ", "NI", "NG", "PK", "PE", "PH", "PR",
+              "SG", "KR", "TW", "TJ", "TH", "TN", "TR", "US", "UY", "UZ", "VE", "VN", "ZW")
+
+country_map <- data.frame(cntry_AN = cntry_AN, Country_Name = country_names)
+wvs_evs_2017 <- merge(wvs_evs_2017, country_map, by = "cntry_AN", all.x = TRUE)
+```
+
+```{r include=FALSE}
+gdp_ppp <- gdp_ppp %>% rename(Country_Name = 'Country Name')
+gdp_ppp <- gdp_ppp %>% select(Country_Name, '2022')
+
+
+# Присоединяем ВВП по Country_Name
+country_map_with_gdp <- country_map %>%
+  left_join(gdp_ppp, by = "Country_Name")
+
+country_map_with_gdp <- country_map_with_gdp %>% rename(gdp_ppp= '2022')
+
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Czech Republic"] <- 51709.84
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Egypt"] <- 17526.8
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Hong Kong"] <- 68602.28
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Iran"] <- 16424.38
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Kyrgyzstan"] <- 6577.513
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "South Korea"] <- 51231.45
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Macao"] <- 64373.93
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Russia"] <- 40991.62
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Slovakia"] <- 41111.75
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Turkey"] <- 39101.07
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Taiwan"] <- 69151 
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Venezuela"] <- 7259 
+country_map_with_gdp$gdp_ppp[country_map_with_gdp$Country_Name == "Vietnam"] <- 13852.12 
+
+country_map_with_gdp <- country_map_with_gdp %>% rename(GDP = gdp_ppp)
+
+wvs_evs_2017 <- merge(wvs_evs_2017, country_map_with_gdp[, c("Country_Name", "GDP")], by = "Country_Name", all.x = TRUE)
+```
+
+------------------------------------------------------------------------
+
+### Отбор переменных
+
+#### Индекс Патриманиолизма
+
+##### Национальная гордость
+
+```{r pride_nation}
+# Национальная гордость (G006) -> (pride_nation)
+table(wvs_evs_2017$G006,  useNA = "ifany") 
+wvs_evs_2017$pride_nation <- ifelse(wvs_evs_2017$G006 > 0, wvs_evs_2017$G006, NA)
+table(wvs_evs_2017$pride_nation,  useNA = "ifany")
+
+# Обратная кодировка
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(pride_nation = max(pride_nation, na.rm = TRUE) - pride_nation + 1)
+table(wvs_evs_2017$pride_nation,  useNA = "ifany") 
+```
+
+##### Гордость родителей
+
+```{r}
+# Гордость родителей (D054) -> (pride_parents)
+table(wvs_evs_2017$D054,  useNA = "ifany") 
+wvs_evs_2017$pride_parents <- ifelse(wvs_evs_2017$D054 > 0, wvs_evs_2017$D054, NA)
+table(wvs_evs_2017$pride_parents,  useNA = "ifany")
+
+# Обратная кодировка
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(pride_parents = max(pride_parents, na.rm = TRUE) - pride_parents + 1)
+table(wvs_evs_2017$pride_parents,  useNA = "ifany")
+```
+
+##### Необходимость большего уважения власти
+
+```{r}
+# Нужно больше уважать власти (E018) -> (respect_auth)
+table(wvs_evs_2017$E018,  useNA = "ifany") 
+wvs_evs_2017$respect_auth <- ifelse(wvs_evs_2017$E018 > 0, wvs_evs_2017$E018, NA)
+table(wvs_evs_2017$respect_auth,  useNA = "ifany")
+
+# Обратная кодировка
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(respect_auth = max(respect_auth, na.rm = TRUE) - respect_auth + 1)
+table(wvs_evs_2017$respect_auth,  useNA = "ifany")
+```
+
+##### Создание индекса
+
+```{r}
+# Сохраняем логический вектор полных кейсов
+complete_rows <- complete.cases(wvs_evs_2017[, c("pride_nation", "pride_parents", "respect_auth")])
+
+# Применяем PCA только к полным строкам
+subset <- wvs_evs_2017[complete_rows, c("pride_nation", "pride_parents", "respect_auth")]
+
+# PCA
+pca <- prcomp(subset, scale. = TRUE)
+
+# Создаём индекс в subset
+subset$index_pat <- pca$x[, 1]
+
+# Нормализуем внутри subset
+subset$index_pat <- (subset$index_pat - min(subset$index_pat)) / (max(subset$index_pat) - min(subset$index_pat))
+
+# Разворачиваем
+subset$index_pat <- 1 - subset$index_pat
+
+# Помещаем в исходный датафрейм
+wvs_evs_2017$index_pat <- NA
+wvs_evs_2017$index_pat[complete_rows] <- subset$index_pat
+```
+
+```{r eval=FALSE, include=FALSE}
+table(wvs_evs_2017$index_pat,  useNA = "ifany") 
+```
+
+------------------------------------------------------------------------
+
+#### Переменные абортов
+
+```{r abortion}
+# Аборты (F120) -> (abortion)
+table(wvs_evs_2017$F120, useNA = "ifany") 
+wvs_evs_2017$abortion <- ifelse(wvs_evs_2017$F120 > 0, wvs_evs_2017$F120, NA)
+table(wvs_evs_2017$abortion, useNA = "ifany") 
+
+# Бинарное оправдание абортов (abortion_binary)
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(abortion_binary = case_when(
+    abortion == 1 ~ 0,                # Если аборт никогда не оправдан
+    abortion %in% 2:10 ~ 1            # Если аборт может быть оправдан хотя бы частично
+  ))
+table(wvs_evs_2017$abortion_binary, useNA = "ifany")
+
+# Оправдание аборотов выше 1 (abortion_other)
+wvs_evs_2017$abortion_other <- ifelse(wvs_evs_2017$abortion > 1, wvs_evs_2017$F120, NA)
+table(wvs_evs_2017$abortion_other, useNA = "ifany")
+```
+
+------------------------------------------------------------------------
+
+#### Демографические переменные
+
+##### Пол
+
+```{r control}
+# Пол (X001) -> (gender)
+table(wvs_evs_2017$X001,  useNA = "ifany") 
+wvs_evs_2017$gender <- ifelse(wvs_evs_2017$X001 > 0, wvs_evs_2017$X001, NA)
+table(wvs_evs_2017$gender,  useNA = "ifany") 
+
+# Мужчины (0) а женщины (1)
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(gender = case_when(
+    gender == 1 ~ 0,
+    gender == 2 ~ 1))
+table(wvs_evs_2017$gender, useNA = "ifany")
+```
+
+##### Возраст
+
+```{r}
+# Возраст (X003) -> (age)
+table(wvs_evs_2017$X003,  useNA = "ifany") 
+wvs_evs_2017$age <- ifelse(wvs_evs_2017$X003 > 0, wvs_evs_2017$X003, NA)
+table(wvs_evs_2017$age, useNA = "ifany") 
+```
+
+##### Доход
+
+```{r}
+# В базе содержатся отдельно переменные дохода для стран EVS и стран WVS поэтому их нужно объединить в одну переменную
+# Преобразуем специальные коды в NA
+wvs_evs_2017$X047E_EVS5[wvs_evs_2017$X047E_EVS5 < 1] <- NA
+wvs_evs_2017$X047_WVS7[wvs_evs_2017$X047_WVS7 < 1] <- NA
+
+# Создаем объединенную переменную дохода
+wvs_evs_2017$income <- ifelse(!is.na(wvs_evs_2017$X047_WVS7),
+                              wvs_evs_2017$X047_WVS7, 
+                              wvs_evs_2017$X047E_EVS5)
+
+table(wvs_evs_2017$income, useNA = "ifany")
+```
+
+##### Образование
+
+```{r}
+# Образование (X025_01) -> (education)
+table(wvs_evs_2017$X025A_01,  useNA = "ifany") 
+wvs_evs_2017$education <- ifelse(wvs_evs_2017$X025A_01 > -1, wvs_evs_2017$X025A_01, NA)
+table(wvs_evs_2017$education,  useNA = "ifany")
+
+# бинаризируем высшее образование (1) и другое (0)
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(education = case_when(
+    education %in% c(6, 7, 8) ~ 1,
+    education %in% c(0, 1, 2, 3, 4, 5) ~ 0))
+table(wvs_evs_2017$education,  useNA = "ifany")
+```
+
+##### Семейное положение
+
+```{r}
+# Семейное положение (X007) >- (marital_stat)
+wvs_evs_2017$marital_stat <- ifelse(wvs_evs_2017$X007 > 0, wvs_evs_2017$X007, NA)
+
+# Преобразуем в фактор с метками
+wvs_evs_2017$marital_stat <- factor(wvs_evs_2017$marital_stat,
+                                    levels = c(1, 2, 3, 4, 5, 6),
+                                    labels = c("Married", "Living together", "Divorced", 
+                                               "Separated", "Widowed", "Single"))
+
+# Проверяем распределение
+table(wvs_evs_2017$marital_stat, useNA = "ifany")
+```
+
+##### Наличие детей
+
+```{r}
+# Количество детей (X011) -> (parenthood)
+table(wvs_evs_2017$X011,  useNA = "ifany") 
+wvs_evs_2017$parenthood <- ifelse(wvs_evs_2017$X011 > -1, wvs_evs_2017$X011, NA)
+table(wvs_evs_2017$parenthood,  useNA = "ifany")
+
+# бинаризируем тех у кого есть дети (1) и тех у кого нет (0)
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(parenthood = case_when(
+    parenthood %in% c(1, 2, 3, 4, 5) ~ 1,
+    parenthood == 0 ~ 0))
+table(wvs_evs_2017$parenthood,  useNA = "ifany")
+```
+
+#### Важность религии
+
+```{r religion}
+# Важность религии в жизни (A006) -> (religion_imp)
+table(wvs_evs_2017$A006, useNA = "ifany") 
+wvs_evs_2017$religion_imp <- ifelse(wvs_evs_2017$A006 > 0, wvs_evs_2017$A006, NA)
+table(wvs_evs_2017$religion_imp,  useNA = "ifany")
+
+# Обратная кодировка
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(religion_imp = max(religion_imp, na.rm = TRUE) - religion_imp + 1)
+table(wvs_evs_2017$religion_imp,  useNA = "ifany") 
+```
+
+#### Гендерные установки (Индекс эмансипации)
+
+```{r gender attitudes}
+# Мужчины становятся лучшими политическими лидерами, чем женщины (D059)
+table(wvs_evs_2017$D059,  useNA = "ifany") 
+wvs_evs_2017$D059 <- ifelse(wvs_evs_2017$D059 > 0, wvs_evs_2017$D059, NA)
+table(wvs_evs_2017$D059,  useNA = "ifany") 
+
+# Университет важнее для мальчика, чем для девочки (D060)
+table(wvs_evs_2017$D060,  useNA = "ifany") 
+wvs_evs_2017$D060 <- ifelse(wvs_evs_2017$D060 > 0, wvs_evs_2017$D060, NA)
+table(wvs_evs_2017$D060,  useNA = "ifany") 
+
+# Мужчины становятся лучшими руководителями бизнеса, чем женщины (D078)
+table(wvs_evs_2017$D078,  useNA = "ifany") 
+wvs_evs_2017$D078 <- ifelse(wvs_evs_2017$D078 > 0, wvs_evs_2017$D078, NA)
+table(wvs_evs_2017$D078,  useNA = "ifany") 
+
+# Подготовка данных: выбор только переменных для анализа
+gender_data <- wvs_evs_2017[, c("D059", "D060", "D078")]
+
+# Удаление строк с NA
+gender_data <- na.omit(gender_data)
+
+# Проверка корреляций между переменными
+cor_matrix <- cor(gender_data)
+print(cor_matrix)
+
+# Проверка пригодности данных для факторного анализа (Kaiser-Meyer-Olkin тест)
+kmo_result <- psych::KMO(cor_matrix)
+print(kmo_result)
+
+# Выполнение факторного анализа (1 фактор)
+fa_result <- psych::fa(gender_data, nfactors = 1, rotate = "none")
+
+# Печать результатов анализа
+print(fa_result)
+
+# Вывод нагрузки переменных на фактор
+print(fa_result$loadings)
+
+# Проверка внутренней согласованности (Cronbach's alpha)
+ltm::cronbach.alpha(gender_data)
+
+# Создание индекса гендерного эгалитаризма
+wvs_evs_2017 <- wvs_evs_2017 %>%
+  mutate(gender_lib = (D059 + D060 + D078) / 3)
+
+# Визуализация распределения этого индекса между странами
+wvs_evs_2017 %>%
+  group_by(Country_Name) %>%
+  summarise(gender_lib = mean(gender_lib, na.rm = TRUE)) %>%  # Убираем NA
+  ggplot(aes(x = reorder(Country_Name, gender_lib), y = gender_lib, color = Country_Name)) +
+  geom_point(stat = "identity") +
+  theme(
+    legend.position = "none",         # Убираем легенду
+    axis.text.y = element_text(size = 5)  # Уменьшаем шрифт для названий стран
+  ) +
+  coord_flip() +
+  xlab('')
+```
+
+#### Создание переменных на уроне стран
+
+```{r mean, message=FALSE, warning=FALSE}
+# Агрегирование данных
+ag_wvs_evs_2017 <- wvs_evs_2017 %>% 
+  group_by(cntry_AN)  %>%
+  summarise_all(mean, na.rm=T)
+
+# Отбор необходимых переменных 
+ag_subset <- ag_wvs_evs_2017 %>% dplyr::select(cntry_AN,
+                                               abortion,
+                                               index_pat,
+                                               religion_imp,
+                                               gender_lib)
+
+# Переименование агрегированных переменных
+ag_subset <- ag_subset %>%
+  rename(ag_index_pat = index_pat, # Старое имя -> Новое имя
+         ag_religion_imp = religion_imp,
+         ag_gender_lib = gender_lib,
+         ag_abortion = abortion)
+
+# Добавление агрегированных переменных в общий датасет
+wvs_evs_2017 <- merge(wvs_evs_2017, ag_subset[, c("cntry_AN", "ag_index_pat")], by = "cntry_AN", all.x = TRUE)
+wvs_evs_2017 <- merge(wvs_evs_2017, ag_subset[, c("cntry_AN", "ag_religion_imp")], by = "cntry_AN", all.x = TRUE)
+wvs_evs_2017 <- merge(wvs_evs_2017, ag_subset[, c("cntry_AN", "ag_gender_lib")], by = "cntry_AN", all.x = TRUE)
+wvs_evs_2017 <- merge(wvs_evs_2017, ag_subset[, c("cntry_AN", "ag_abortion")], by = "cntry_AN", all.x = TRUE)
+```
+
+------------------------------------------------------------------------
+
+#### Индекс модернизации
+
+```{r}
+# Для создания индекса используется логарифм ВВП, средний уровень религиозности и гендерного либерализма по странам
+moder <- wvs_evs_2017 %>% dplyr::select(GDP, ag_religion_imp, ag_gender_lib)
+moder <- moder %>% mutate(log_GDP = log(GDP))
+moder <- moder %>% dplyr::select(-GDP)
+
+# Метод главных компонент
+pca <- prcomp(moder, scale. = TRUE)
+
+summary(pca)
+pca
+
+# Первая главная компонента будет использоваться в качестве индекса модернизации
+moder$modernization_index <- pca$x[, 1]
+
+eigenvalues <- (pca$sdev)^2 
+print(eigenvalues)
+
+# Корреляции между компонентами индекса
+cor(moder[, -4])
+
+# Добавляем индекс в общий датасет
+wvs_evs_2017$modernization_index <- NA  
+wvs_evs_2017$modernization_index[complete.cases(moder)] <- moder$modernization_index
+
+# Разворачиваем индекс, чтобы наибольшее значение соответствовало самой модернизированной стране
+wvs_evs_2017$modernization_index <- -wvs_evs_2017$modernization_index
+
+# график распределения индекса модернизации
+wvs_evs_2017 %>%
+  group_by(Country_Name) %>%
+  ggplot(aes(x = reorder(Country_Name, modernization_index),
+             y = modernization_index, color = Country_Name)) +
+  geom_point(stat = "identity") +
+  theme(
+    legend.position = "none",         # Убираем легенду
+    axis.text.y = element_text(size = 5)  # Уменьшаем шрифт для названий стран
+  ) +
+  coord_flip() +
+  xlab('')
+```
+
+------------------------------------------------------------------------
+
+```{r}
+# Корреляция между индексом модернизации и другими страновыми переменными
+wvs_evs_2017 %>% dplyr::select(modernization_index,
+                               ag_index_pat,
+                               ag_religion_imp,
+                               ag_gender_lib,
+                               ag_abortion) %>% cor()
+```
+
+------------------------------------------------------------------------
+
+### Итоговый список переменных
+
+1)  **index_pat** - Индекс патримониализма
+
+2)  **abortion_binary** - Бинарное оправдание аборотов. 0 - аборт не может быть оправдан никогда, а 1 (варианты ответа от 2 до 10) оправдан хоть в какой-то степени. Используется в логистической регрессии
+
+3)  **abortion_other** - Оправдание аборотов от 2 до 10. Используется в линейной регрессиии
+
+4)  **gender** - Пол респондента. 0 - мужской, 1 - женский
+
+5)  **age** - Возраст респондента
+
+6)  **education** - Образование. 1 - высшее, 0 - другое
+
+7)  **marital_stat** - Семейное положение. Факторная переменная с 5 уровнями
+
+8)  **parenthood** - Наличие детей. 1 - есть дети, 0 - нет
+
+9)  **religion_imp** - Важность религии в жизни. Измеряется по шкале от 1 до 4
+
+10) **gender_lib** - Индекс гендерной эмансипации
+
+-   Предикторы странового уровня
+
+11) **modernization_index** - Индекс модернизации
+
+------------------------------------------------------------------------
+
+### Этап 1. Многоуровневая логистическая регрессия
+
+```{r Датсет для бинарных абортов}
+subset_1 <- wvs_evs_2017 %>% 
+  select(Country_Name, 
+         index_pat,
+         abortion_binary,
+         gender,
+         age,
+         education,
+         marital_stat,
+         income,
+         parenthood,
+         gender_lib,
+         religion_imp,
+         modernization_index) %>% 
+  na.omit()
+
+# Шаг 1: Стандартизация индивидуальных предикторов по общевыборочному среднему и дисперсии
+subset_1 <- subset_1 %>%
+  mutate(across(c(index_pat, age, income, gender_lib, religion_imp), 
+                ~ scale(.)[, 1]))
+
+# Шаг 2: Центрирование индивидуальных предикторов по страновым средним
+subset_1 <- subset_1 %>%
+  group_by(Country_Name) %>%
+  mutate(across(c(index_pat, age, income, gender_lib, religion_imp), 
+                ~ . - mean(., na.rm = TRUE))) %>%
+  ungroup()
+
+# Шаг 3: Стандартизация странового предиктора (modernization_index) по общевыборочному среднему
+subset_1 <- subset_1 %>%
+  mutate(modernization_index = scale(modernization_index)[, 1])
+
+# Проверка результата
+glimpse(subset_1)
+```
+
+##### Нулевая модель
+
+```{r}
+mod0 <- glmer(abortion_binary ~ (1 | Country_Name),
+              family = 'binomial', data = subset_1)
+performance::icc(mod0)
+```
+
+##### Модель 1 (Добавление индекса патримониализма)
+
+```{r}
+mod1 <- glmer(abortion_binary ~ index_pat + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod1)
+```
+
+##### Модель 2 (Добавление пола)
+
+```{r}
+mod2 <- glmer(abortion_binary ~ index_pat + gender + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod2)
+```
+
+##### Модель 3 (Добавление возраста)
+
+```{r}
+mod3 <- glmer(abortion_binary ~ index_pat + gender + age + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod3)
+```
+
+##### Модель 4 (Добавление образования)
+
+```{r}
+mod4 <- glmer(abortion_binary ~ index_pat + gender + age + education 
+              + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod4)
+```
+
+##### Модель 5 (Добавление семейного положения)
+
+```{r}
+mod5 <- glmer(abortion_binary ~ index_pat + gender + age + education 
+              + marital_stat + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod5)
+```
+
+##### Модель 6 (Добавление наличия детей)
+
+```{r}
+mod6 <- glmer(abortion_binary ~ index_pat + gender + age + education 
+              + marital_stat + parenthood + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod6)
+```
+
+##### Модель 7 (Добавления важности религии)
+
+```{r}
+mod7 <- glmer(abortion_binary ~ index_pat + gender + age + education 
+              + marital_stat + parenthood + religion_imp + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod7)
+```
+
+##### Модель 8 (Добавление индекса гендерной эмпансипации)
+
+```{r}
+mod8 <- glmer(abortion_binary ~ index_pat + gender + age + education + marital_stat +
+                parenthood + religion_imp + gender_lib + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod8)
+```
+
+##### Модель 9 (Добавление дохода)
+
+```{r}
+mod9 <- glmer(abortion_binary ~ index_pat + gender + age + education 
+              + marital_stat + parenthood + religion_imp + gender_lib + income + 
+                (1 + index_pat | Country_Name), family = 'binomial', data = subset_1)
+
+summary(mod9)
+```
+
+------------------------------------------------------------------------
+
+#### Оценка качества моделей
+
+```{r}
+anova(mod0, mod1, mod2, mod3, mod4, mod5, mod6, mod7, mod8, mod9)
+```
+
+------------------------------------------------------------------------
+
+##### Модель 10 (Включение индекса модернизации - предиктора 2 уровня)
+
+```{r}
+mod10 <- glmer(abortion_binary ~ index_pat + gender + age + education +
+                 marital_stat + parenthood + religion_imp + gender_lib + income +
+                 modernization_index + (1 + index_pat | Country_Name),
+               family = 'binomial', data = subset_1)
+
+summary(mod10)
+```
+
+##### Модель 11 (Межуровневое взаимодействие)
+
+```{r}
+mod11 <- glmer(abortion_binary ~ index_pat*modernization_index + 
+                 gender + age + education + marital_stat + parenthood + religion_imp +
+                 gender_lib + income + (1 + index_pat | Country_Name),
+              family = 'binomial', data = subset_1)
+
+summary(mod11)
+```
+
+##### Визуализация модели 12
+
+```{r}
+interact_plot(mod11,
+              pred = index_pat,
+              modx = modernization_index,
+              plot.points = FALSE,    
+              interval = TRUE,        
+              x.label = "Индекс патримониализма",
+              y.label = "Предсказанна вероятность")
+```
+
+------------------------------------------------------------------------
+
+##### Визуализация модели 12 (Вариат 2)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot <- interact_plot(mod11,
+                      pred = index_pat,
+                      modx = modernization_index,
+                      plot.points = FALSE,
+                      interval = TRUE,
+                      x.label = "Индекс патримониализма (Стандартизованный)",
+                      y.label = "Предсказанная вероятность",
+                      legend.main = "Индекс модернизации",
+                      colors = c("#e15759", "#f28e2b", "#4e79a7"),
+                      line.thickness = 1.5,
+                      vary.lty = FALSE)
+
+plot <- plot +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 13, face = "bold"),
+
+    axis.title.x = element_text(size = 9, face = "bold", margin = margin(t = 10)),
+    axis.title.y = element_text(size = 9, face = "bold", margin = margin(r = 10)),
+    axis.text = element_text(size = 9),
+
+    legend.position = "right",  # <-- здесь изменено
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.text = element_text(size = 10),
+
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80", size = 0.5, linetype = "dashed"),
+    panel.grid.minor.y = element_blank(),
+
+    axis.line.x = element_line(color = "black", size = 0.5),
+    axis.line.y = element_line(color = "black", size = 0.5),
+
+    axis.ticks.x = element_line(color = "black", size = 0.5),
+    axis.ticks.length.x = unit(0.2, "cm")
+  ) +
+  guides(linetype = "none")
+
+print(plot)
+```
+
+------------------------------------------------------------------------
+
+#### Оценка качества моделей
+
+```{r}
+anova(mod0, mod9, mod10, mod11)
+```
+
+------------------------------------------------------------------------
+
+### Этап 2. Многоуровневая линейная регрессия
+
+```{r}
+# Отбор переменных и очистка от NA
+subset_2 <- wvs_evs_2017 %>% 
+  select(Country_Name, 
+         index_pat,
+         abortion_other,
+         gender,
+         age,
+         income,
+         education,
+         marital_stat,
+         parenthood,
+         gender_lib,
+         religion_imp,
+         modernization_index) %>% 
+  na.omit()
+
+# Шаг 1: Стандартизация индивидуальных предикторов по общевыборочному среднему и дисперсии
+subset_2 <- subset_2 %>%
+  mutate(across(c(index_pat, age, income, gender_lib, religion_imp), 
+                ~ scale(.)[, 1]))
+
+# Шаг 2: Центрирование индивидуальных предикторов по страновым средним
+subset_2 <- subset_2 %>%
+  group_by(Country_Name) %>%
+  mutate(across(c(index_pat, age, income, gender_lib, religion_imp), 
+                ~ . - mean(., na.rm = TRUE))) %>%
+  ungroup()
+
+# Шаг 3: Стандартизация странового предиктора (modernization_index) по общевыборочному среднему
+subset_2 <- subset_2 %>%
+  mutate(modernization_index = scale(modernization_index)[, 1])
+
+# Проверка результата
+glimpse(subset_2)
+```
+
+##### Нулевая модель
+
+```{r}
+mod0_2 <- lmer(abortion_other ~ (1  | Country_Name), REML = FALSE, data = subset_2)
+performance::icc(mod0_2)
+```
+
+##### Модель 1_2 (Добавление патримониализма)
+
+```{r}
+mod1_2 <- lmer(abortion_other ~ index_pat + (1 + index_pat | Country_Name),
+               REML = FALSE, data = subset_2, control = lmerControl(optimizer = "bobyqa"))
+
+summary(mod1_2)
+```
+
+##### Модель 2_2 (Добавление пола)
+
+```{r}
+mod2_2 <- lmer(abortion_other ~ index_pat + gender + (1 + index_pat | Country_Name),
+               REML = FALSE, data = subset_2)
+
+summary(mod2_2)
+```
+
+##### Модель 3_2 (Добавление возраста)
+
+```{r}
+mod3_2 <- lmer(abortion_other ~ index_pat + gender + age + (1 + index_pat | Country_Name),
+               REML = FALSE, data = subset_2)
+
+summary(mod3_2)
+```
+
+##### Модель 4_2 (Добавление образования)
+
+```{r}
+mod4_2 <- lmer(abortion_other ~ index_pat + gender + age + education + (1 + index_pat | Country_Name),
+               REML = FALSE, data = subset_2)
+
+summary(mod4_2)
+```
+
+##### Модель 5_2 (Добавление семейного положения)
+
+```{r}
+mod5_2 <- lmer(abortion_other ~ index_pat + gender + age + education + marital_stat +
+                 (1 + index_pat | Country_Name), REML = FALSE, data = subset_2)
+
+summary(mod5_2)
+```
+
+##### Модель 6_2 (Добавление наличия детей)
+
+```{r}
+mod6_2 <- lmer(abortion_other ~ index_pat + gender + age + education + marital_stat + 
+                 parenthood + (1 + index_pat | Country_Name), REML = FALSE, data = subset_2, control = lmerControl(optimizer = "bobyqa"))
+
+summary(mod6_2)
+```
+
+##### Модель 7_2 (Добавление религиозности)
+
+```{r}
+mod7_2 <- lmer(abortion_other ~ index_pat + gender + age + education + marital_stat + 
+                 parenthood + religion_imp + (1 + index_pat | Country_Name), REML = FALSE, data = subset_2, control = lmerControl(optimizer = "bobyqa"))
+
+summary(mod7_2)
+```
+
+##### Модель 8_2 (Добавление гендерной эмансипации)
+
+```{r}
+mod8_2 <- lmer(abortion_other ~ index_pat + gender + age + education +
+                 marital_stat + parenthood + religion_imp + gender_lib +
+                 (1 + index_pat | Country_Name), 
+               REML = FALSE, data = subset_2, control = lmerControl(optimizer = "bobyqa"))
+
+summary(mod8_2)
+```
+
+##### Модель 9_2 (Добавление дохода)
+
+```{r}
+mod9_2 <- lmer(abortion_other ~ index_pat + gender + age + education +
+                 marital_stat + parenthood + religion_imp + gender_lib + income +
+                 (1 + index_pat | Country_Name), 
+               REML = FALSE, data = subset_2, control = lmerControl(optimizer = "bobyqa"))
+
+summary(mod9_2)
+```
+
+------------------------------------------------------------------------
+
+##### Оценка качества моделей
+
+```{r}
+anova(mod0_2, mod1_2, mod2_2, mod3_2, mod4_2, mod5_2, mod6_2, mod7_2, mod8_2, mod9_2)
+```
+
+------------------------------------------------------------------------
+
+##### Модель 10_2 (Включение индекса модернизации - предиктора 2 уровня)
+
+```{r}
+mod10_2 <- lmer(abortion_other ~ index_pat + gender + age + education + 
+                  marital_stat + parenthood + religion_imp + gender_lib + 
+                  income + modernization_index + 
+                  (1 + index_pat | Country_Name),
+                REML = FALSE, data = subset_2)
+
+summary(mod10_2)
+```
+
+##### Модель 11_2 (Межуровневое взаимодействие)
+
+```{r}
+mod11_2 <- lmer(abortion_other ~ index_pat*modernization_index +
+                  gender + age + education + marital_stat + parenthood + 
+                  religion_imp + gender_lib + income +
+                  (1 + index_pat | Country_Name),
+                REML = FALSE, data = subset_2)
+
+summary(mod11_2)
+```
+
+------------------------------------------------------------------------
+
+#### Оценка качества моделей
+
+```{r}
+anova(mod0_2, mod9_2, mod10_2, mod11_2)
+```
+
+------------------------------------------------------------------------
+
+##### График межуровневого взаимодействия (библиотека interactions)
+
+```{r}
+interact_plot(model = mod11_2, 
+              pred = index_pat, 
+              modx = modernization_index, 
+              plot.points = FALSE,
+              interval = TRUE,
+              x.label = "Индекс патримониализма",
+              y.label = "Отношение к абортам",
+              legend.main = "Индекс модернизации")
+```
+
+##### График межуровневого взаимодействия (Вариант 2)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot <- interact_plot(model = mod11_2, 
+                      pred = index_pat, 
+                      modx = modernization_index, 
+                      plot.points = FALSE,
+                      interval = TRUE,
+                      x.label = "Индекс патримониализма (Стандартизованный)",
+                      y.label = "Отношение к абортам",
+                      legend.main = "Индекс модернизации",
+                      colors = c("#e15759", "#f28e2b", "#4e79a7"),
+                      line.thickness = 1.5,
+                      vary.lty = FALSE)
+
+plot <- plot +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 13, face = "bold"),
+    
+    axis.title.x = element_text(size = 10, face = "bold", margin = margin(t = 10)),
+    axis.title.y = element_text(size = 10, face = "bold", margin = margin(r = 10)),
+    axis.text = element_text(size = 10),
+    
+    legend.position = "right",
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.text = element_text(size = 10),
+    
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80", size = 0.5, linetype = "dashed"),
+    panel.grid.minor.y = element_blank(),
+    
+    axis.line.x = element_line(color = "black", size = 0.5),
+    axis.line.y = element_line(color = "black", size = 0.5),
+    
+    axis.ticks.x = element_line(color = "black", size = 0.5),
+    axis.ticks.length.x = unit(0.2, "cm")
+  ) +
+  guides(linetype = "none")
+
+print(plot)
+
+```
+
+------------------------------------------------------------------------
+
+##### Значимость линии наклона в зависимости от уровня модернизации
+
+```{r}
+johnson_neyman(mod11_2,
+               pred = "index_pat",        # чей эффект исследуется
+               modx = "modernization_index", # переменная-модератор
+               title = "Johnson-Neyman plot for interaction",
+               alpha = 0.05,
+               plot = TRUE)
+```
+
+---
+
+#### Взаимосвязь индекса патримониализма и индекса модернизации на межстрановом уровне
+
+```{r message=FALSE, warning=FALSE}
+# Подготовка данных
+plot_data <- wvs_evs_2017 %>%
+  filter(!is.na(ag_index_pat), !is.na(modernization_index)) %>%
+  distinct(Country_Name, ag_index_pat, modernization_index)
+
+# Построение графика
+plot <- ggplot(plot_data, aes(x = modernization_index, y = ag_index_pat, label = Country_Name)) +
+  geom_point(color = "#4e79a7", size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, color = "#e15759", linetype = "dashed", size = 1.2) +
+  geom_text_repel(size = 3, max.overlaps = 25) +
+  labs(
+    x = "Индекс модернизации",
+    y = "Индекс патримониализма (агрегированный)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 13, face = "bold"),
+    
+    axis.title.x = element_text(size = 10, face = "bold", margin = margin(t = 10)),
+    axis.title.y = element_text(size = 10, face = "bold", margin = margin(r = 10)),
+    axis.text = element_text(size = 10),
+    
+    legend.position = "none",
+    
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80", size = 0.5, linetype = "dashed"),
+    panel.grid.minor.y = element_blank(),
+    
+    axis.line.x = element_line(color = "black", size = 0.5),
+    axis.line.y = element_line(color = "black", size = 0.5),
+    
+    axis.ticks.x = element_line(color = "black", size = 0.5),
+    axis.ticks.length.x = unit(0.2, "cm")
+  )
+
+print(plot)
+```
+
+---
+
+```{r}
+coefs <- summary(mod11)$coefficients
+print(data.frame(
+  Pct  = round((exp(coefs[, "Estimate"]) - 1) * 100, 1)
+))
+```
+
+---
