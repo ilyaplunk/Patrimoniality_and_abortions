@@ -16,4 +16,6 @@ this effect is evident among respondents who accept abortion in certain cases, b
 radical opponents. The study contributes to the understanding of value conflicts surrounding
 reproductive rights in a global context.
 
-A
+---
+
+1) abortion - 
