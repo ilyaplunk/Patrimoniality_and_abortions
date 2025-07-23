@@ -18,5 +18,7 @@ reproductive rights in a global context.
 
 ---
 
-1) abortion.html — an HTML file that shows the entire process of data preprocessing and model building step by step.
+#### Content
+
+1) **abortion.html** — an HTML file that shows the entire process of data preprocessing and model building step by step.
 2) 
