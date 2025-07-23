@@ -1,7 +1,7 @@
 ### Analysis of factors influencing attitudes towards abortion based on joint WVS/EVS data
 ----
 
-This is R code of my term paper which I wrote in my first master’s. I used joint dataframe by World value survey and European value survey (https://www.worldvaluessurvey.org/WVSEVSjoint2017.jsp) 
+This is the R code from my term paper, which I wrote during the first year of my master's program. It is based on the joint dataset from the World Values Survey and the European Values Survey (https://www.worldvaluessurvey.org/WVSEVSjoint2017.jsp).
 
 **Abstract:** The study analyses factors influencing attitudes towards abortion using combined
 WVS/EVS data (2017-2022, 92 countries, N > 150,000). Based on cultural modernisation theory
