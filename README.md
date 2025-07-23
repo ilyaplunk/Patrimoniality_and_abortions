@@ -20,5 +20,7 @@ reproductive rights in a global context.
 
 #### Content
 
-1) **abortion.html** — an HTML file that shows the entire process of data preprocessing and model building step by step.
-2) 
+1) **abortion.html** — an HTML file that shows the entire process of data preprocessing and model building step by step;
+2) **abortion_term_paper.Rmd** - similar to the previous file, but in R Markdown format;
+3) **Tables_for_present_results** - this file contains R code used to generate tables for presenting results in a paper format;
+4) **plot_average.R** - R code for bilding distribution plot of key variables at the country level
